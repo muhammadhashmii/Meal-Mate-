@@ -1,4 +1,5 @@
 import { Heart } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export function Footer() {
   return (
@@ -19,10 +20,10 @@ export function Footer() {
         <div className="space-y-3">
           <h4 className="font-bold text-sm">Quick Links</h4>
           <ul className="space-y-1.5 text-xs font-medium opacity-90">
-            <li><a href="/" className="hover:opacity-100 transition-opacity">Home</a></li>
-            <li><a href="/order-history" className="hover:opacity-100 transition-opacity">Order History</a></li>
-            <li><a href="/cart" className="hover:opacity-100 transition-opacity">Cart</a></li>
-            <li><a href="/crowd-monitor" className="hover:opacity-100 transition-opacity">Crowd Monitor</a></li>
+            <li><Link to="/" className="hover:opacity-100 transition-opacity">Home</Link></li>
+            <li><Link to="/order-history" className="hover:opacity-100 transition-opacity">Order History</Link></li>
+            <li><Link to="/cart" className="hover:opacity-100 transition-opacity">Cart</Link></li>
+            <li><Link to="/crowd-monitor" className="hover:opacity-100 transition-opacity">Crowd Monitor</Link></li>
           </ul>
         </div>
 
