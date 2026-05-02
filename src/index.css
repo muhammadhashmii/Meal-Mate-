@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@500;600;700&display=swap');
+
+@layer base {
+  :root {
+    /* Warm off-white page background #F7F3EE */
+    --background: 35 32% 95%;
+    /* Near-black text with dark green tint #1A2E22 */
+    --foreground: 145 28% 14%;
+
+    /* Surface white #FFFFFF */
+    --card: 0 0% 100%;
+    --card-foreground: 145 28% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 145 28% 14%;
+
+    /* Core orange #E05C1A — all CTAs/active states */
+    --primary: 19 79% 49%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Orange pale #FEF0E6 */
+    --secondary: 22 86% 95%;
+    /* Mid text #3A5E46 */
+    --secondary-foreground: 142 24% 30%;
+
+    /* Green mist #F0FAF4 */
+    --muted: 142 47% 96%;
+    /* Muted text #7FAE8C */
+    --muted-foreground: 140 22% 59%;
+
+    /* Deep forest green #1C4532 — structural accent */
+    --accent: 152 42% 19%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Green-tinted border #E0EDE5 */
+    --border: 140 22% 91%;
+    --input: 140 22% 91%;
+    --ring: 19 79% 49%;
+
+    --radius: 1rem;
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 142 24% 30%;
+    --sidebar-primary: 19 79% 49%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 22 86% 95%;
+    --sidebar-accent-foreground: 19 79% 49%;
+    --sidebar-border: 140 22% 91%;
+    --sidebar-ring: 19 79% 49%;
+
+    --warning: 22 87% 57%;
+    --warning-foreground: 0 0% 100%;
+    /* Dark green #2D6A4F — prices and success */
+    --success: 152 41% 30%;
+    --success-foreground: 0 0% 100%;
+
+    /* Greens */
+    --green-deep: 152 42% 19%;       /* #1C4532 */
+    --green-dark: 152 41% 30%;       /* #2D6A4F — prices */
+    --green-mid: 145 45% 42%;        /* #3D9970 — live dot */
+    --green-light: 144 39% 62%;      /* #74C69D */
+    --green-pale: 142 56% 91%;       /* #DCF5E7 */
+    --green-mist: 142 47% 96%;       /* #F0FAF4 */
+
+    /* Oranges */
+    --orange-core: 19 79% 49%;       /* #E05C1A */
+    --orange-mid: 19 86% 56%;        /* #F07030 */
+    --orange-light: 22 91% 68%;      /* #F89860 */
+    --orange-pale: 22 86% 95%;       /* #FEF0E6 */
+    --orange-mist: 22 100% 97%;      /* #FFF7F2 */
+
+    /* Prices use dark green now */
+    --pink: 152 41% 30%;
+    --orange-gradient-start: 19 79% 49%;
+    --orange-gradient-end: 19 86% 56%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+    font-family: 'Quicksand', sans-serif;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Quicksand', sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Quicksand', sans-serif;
+    font-weight: 700;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(19, 79%, 49%), hsl(19, 86%, 56%));
+  }
+
+  .text-price {
+    color: hsl(152, 41%, 30%);
+  }
+
+  .shadow-card {
+    box-shadow: 0 2px 8px rgba(28, 69, 50, 0.08);
+  }
+
+  .shadow-card-hover {
+    box-shadow: 0 8px 24px rgba(28, 69, 50, 0.12);
+  }
+
+  .shadow-pink-glow {
+    box-shadow: 0 4px 20px rgba(224, 92, 26, 0.25);
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes jiggle {
+    0%, 100% { transform: scale(1); }
+    25% { transform: scale(1.15); }
+    50% { transform: scale(0.95); }
+    75% { transform: scale(1.05); }
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  @keyframes bounce-gentle {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.4s ease-out;
+  }
+
+  .animate-jiggle {
+    animation: jiggle 0.4s ease-in-out;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-bounce-gentle {
+    animation: bounce-gentle 2s ease-in-out infinite;
+  }
+}
