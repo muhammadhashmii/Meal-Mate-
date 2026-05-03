@@ -47,4 +47,11 @@ describe("buildPickupSlots", () => {
     expect(slots.length).toBeGreaterThan(0);
     expect(slots[0].label).toContain("–");
   });
+
+  it("shows next-day availability after business hours", () => {
+    const afterClose = pktWallTimeToUtc(2026, 5, 2, 22, 52).getTime();
+    const slots = buildPickupSlots(afterClose);
+    expect(slots.length).toBe(10);
+    expect(slots.every((s) => s.available)).toBe(true);
+  });
 });

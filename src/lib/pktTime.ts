@@ -5,6 +5,8 @@
 
 export const BUSINESS_TIMEZONE = "Asia/Karachi";
 export const PKT_UTC_OFFSET_HOURS = 5;
+const PICKUP_START_MINUTES = 12 * 60;
+const PICKUP_END_MINUTES = 17 * 60;
 
 /** Karachi calendar date for an instant. */
 export function getKarachiYmd(nowMs: number = Date.now()): { y: number; m: number; d: number } {
@@ -108,13 +110,23 @@ export interface PickupSlotOption {
   available: boolean;
 }
 
+function addDaysToYmd(y: number, m: number, d: number, days: number): { y: number; m: number; d: number } {
+  const shifted = new Date(Date.UTC(y, m - 1, d + days, 12, 0, 0, 0));
+  return { y: shifted.getUTCFullYear(), m: shifted.getUTCMonth() + 1, d: shifted.getUTCDate() };
+}
+
 /** 30-minute slots [12:00, 17:00) in PKT, availability vs rounded "now" in PKT. */
 export function buildPickupSlots(referenceMs: number = Date.now()): PickupSlotOption[] {
-  const { y, m: mo, d } = getKarachiYmd(referenceMs);
-  const nextEligibleMs = nextKarachi30MinBoundaryMs(referenceMs);
+  const now = getKarachiTimeParts(referenceMs);
+  const totalMin = now.h * 60 + now.min;
+  const showNextBusinessDay = totalMin >= PICKUP_END_MINUTES;
+  const { y, m: mo, d } = addDaysToYmd(now.y, now.m, now.d, showNextBusinessDay ? 1 : 0);
+  const nextEligibleMs = showNextBusinessDay
+    ? pktWallTimeToUtc(y, mo, d, Math.floor(PICKUP_START_MINUTES / 60), PICKUP_START_MINUTES % 60).getTime()
+    : nextKarachi30MinBoundaryMs(referenceMs);
   const slots: PickupSlotOption[] = [];
 
-  for (let startMin = 12 * 60; startMin < 17 * 60; startMin += 30) {
+  for (let startMin = PICKUP_START_MINUTES; startMin < PICKUP_END_MINUTES; startMin += 30) {
     const endMin = startMin + 30;
     const sh = Math.floor(startMin / 60);
     const sm = startMin % 60;
@@ -122,7 +134,7 @@ export function buildPickupSlots(referenceMs: number = Date.now()): PickupSlotOp
     const em = endMin % 60;
     const label = `${formatSlotLabel12h(sh, sm)} – ${formatSlotLabel12h(eh, em)}`;
     const slotStartUtc = pktWallTimeToUtc(y, mo, d, sh, sm);
-    const available = slotStartUtc.getTime() >= nextEligibleMs;
+    const available = showNextBusinessDay || slotStartUtc.getTime() >= nextEligibleMs;
     slots.push({ label, available });
   }
 
