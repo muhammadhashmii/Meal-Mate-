@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Bell, Check, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import type { RealtimePostgresInsertPayload } from "@supabase/supabase-js";
 
 interface Notif { id: string; type: string; title: string; message: string; read: boolean; created_at: string; }
 
 const iconFor = (t: string) => t === "order_confirmed" ? "✅" : t === "order_cancelled" ? "❌" : t === "order_ready" ? "🛎️" : t === "order_completed" ? "🏁" : t === "discount" ? "🔥" : "🔔";
+const MAX_NOTIFICATIONS = 20;
+const REALTIME_POLLING_MS = 8000;
 
 export function NotificationsBell() {
   const { user } = useAuth();
@@ -14,25 +17,70 @@ export function NotificationsBell() {
   const [loading, setLoading] = useState(false);
   const unread = notifs.filter((n) => !n.read).length;
 
-  const fetchNotifs = async () => {
-    if (!user) return;
+  const fetchNotifs = useCallback(async () => {
+    if (!user) return false;
     const { data, error } = await supabase
       .from("notifications")
       .select("*")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(20);
-    if (error) return;
+      .limit(MAX_NOTIFICATIONS);
+    if (error) return false;
     setNotifs((data || []) as Notif[]);
-  };
+    return true;
+  }, [user]);
 
   useEffect(() => {
     if (!user) { setNotifs([]); return; }
-    fetchNotifs();
-    const channel = supabase.channel("notifs-rt").on("postgres_changes", { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, () => fetchNotifs()).subscribe();
-    return () => { supabase.removeChannel(channel); };
-    // eslint-disable-next-line
-  }, [user]);
+    let pollerId: number | null = null;
+    const startPolling = () => {
+      if (pollerId !== null) return;
+      pollerId = window.setInterval(() => {
+        void fetchNotifs();
+      }, REALTIME_POLLING_MS);
+    };
+    const stopPolling = () => {
+      if (pollerId === null) return;
+      window.clearInterval(pollerId);
+      pollerId = null;
+    };
+    void fetchNotifs();
+
+    const channel = supabase
+      .channel(`notifications-rt-${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        (payload: RealtimePostgresInsertPayload<Notif>) => {
+          const newNotif = payload.new;
+          setNotifs((prev) => {
+            if (prev.some((n) => n.id === newNotif.id)) return prev;
+            return [newNotif, ...prev].slice(0, MAX_NOTIFICATIONS);
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
+        () => {
+          void fetchNotifs();
+        },
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          stopPolling();
+          return;
+        }
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
+          startPolling();
+        }
+      });
+
+    return () => {
+      stopPolling();
+      void supabase.removeChannel(channel);
+    };
+  }, [user, fetchNotifs]);
 
   const markAllRead = async () => {
     if (!user || unread === 0) return;
