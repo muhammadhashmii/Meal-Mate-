@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CreditCard, Wallet, Banknote, CheckCircle2, ShoppingBag, Clock, Loader2 } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { useNavigate } from "react-router-dom";
@@ -18,6 +18,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 const LOCAL_AUTH_ENABLED =
   (import.meta.env.VITE_AUTH_MODE as string | undefined)?.toLowerCase() === "local";
 const LOCAL_ORDERS_KEY = "mealmate_local_orders_v1";
+const SLOT_AVAILABILITY_REFRESH_MS = 10000;
+const DEFAULT_SLOT_CAPACITY = Math.max(
+  Number.parseInt(import.meta.env.VITE_DEFAULT_SLOT_CAPACITY ?? "1000", 10) || 1000,
+  1,
+);
 
 type LocalOrder = {
   id: string;
@@ -57,15 +62,84 @@ interface MealLookupRow {
   name: string;
 }
 
+interface SlotAvailabilityRow {
+  slot_label: string;
+  booked_count: number;
+  max_capacity: number;
+  remaining: number;
+  is_full: boolean;
+}
+
 export default function Payment() {
   const { items, totalPrice, clearCart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [selectedPayment, setSelectedPayment] = useState("cash");
   const timeSlots = buildPickupSlots();
+  const slotLabels = useMemo(() => buildPickupSlots().map((slot) => slot.label), []);
+  const [slotBookedByLabel, setSlotBookedByLabel] = useState<Record<string, number>>({});
+  const [slotCapacityByLabel, setSlotCapacityByLabel] = useState<Record<string, number>>({});
+  const [slotLoading, setSlotLoading] = useState(false);
   const firstAvailable = timeSlots.find((s) => s.available)?.label ?? null;
   const [selectedSlot, setSelectedSlot] = useState<string | null>(firstAvailable);
   const [submitting, setSubmitting] = useState(false);
+  const slotUi = useMemo(() => {
+    return timeSlots.map((slot) => {
+      const maxCapacity = slotCapacityByLabel[slot.label] ?? DEFAULT_SLOT_CAPACITY;
+      const bookedCount = slotBookedByLabel[slot.label] ?? 0;
+      const capacityFull = bookedCount >= maxCapacity;
+      const available = slot.available && !capacityFull;
+      return {
+        ...slot,
+        available,
+        bookedCount,
+        maxCapacity,
+        statusLabel: slot.available ? (capacityFull ? "Fully Booked" : null) : "Unavailable",
+      };
+    });
+  }, [timeSlots, slotBookedByLabel, slotCapacityByLabel]);
+  const firstLiveAvailable = slotUi.find((s) => s.available)?.label ?? null;
+
+  useEffect(() => {
+    if (!selectedSlot || slotUi.some((slot) => slot.label === selectedSlot && slot.available)) return;
+    setSelectedSlot(firstLiveAvailable);
+  }, [selectedSlot, slotUi, firstLiveAvailable]);
+
+  useEffect(() => {
+    if (LOCAL_AUTH_ENABLED || !user) return;
+    let mounted = true;
+    let intervalId: number | null = null;
+
+    const fetchAvailability = async () => {
+      setSlotLoading(true);
+      const { data, error } = await supabase.rpc("get_pickup_slot_availability", {
+        slot_labels: slotLabels,
+      });
+      if (!mounted) return;
+      if (!error) {
+        const rows = (data ?? []) as SlotAvailabilityRow[];
+        const bookedMap: Record<string, number> = {};
+        const capMap: Record<string, number> = {};
+        rows.forEach((row) => {
+          bookedMap[row.slot_label] = row.booked_count;
+          capMap[row.slot_label] = Math.max(row.max_capacity ?? DEFAULT_SLOT_CAPACITY, 1);
+        });
+        setSlotBookedByLabel(bookedMap);
+        setSlotCapacityByLabel(capMap);
+      }
+      setSlotLoading(false);
+    };
+
+    void fetchAvailability();
+    intervalId = window.setInterval(() => {
+      void fetchAvailability();
+    }, SLOT_AVAILABILITY_REFRESH_MS);
+
+    return () => {
+      mounted = false;
+      if (intervalId !== null) window.clearInterval(intervalId);
+    };
+  }, [user, slotLabels]);
 
   if (items.length === 0) {
     return (
@@ -113,6 +187,16 @@ export default function Payment() {
         navigate("/qr-confirmation", {
           state: { orderId, meal: items.map((i) => `${i.name} ×${i.quantity}`).join(", "), slot: selectedSlot, amount: totalTokens },
         });
+        return;
+      }
+
+      const { data: selectedAvailability, error: availabilityError } = await supabase.rpc("get_pickup_slot_availability", {
+        slot_labels: [selectedSlot],
+      });
+      if (availabilityError) throw availabilityError;
+      const selected = ((selectedAvailability ?? []) as SlotAvailabilityRow[])[0];
+      if (selected && selected.is_full) {
+        toast.error("Selected slot is full. Please choose another slot.");
         return;
       }
 
@@ -198,7 +282,7 @@ export default function Payment() {
               </CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-2">
-              {timeSlots.map((slot) => (
+              {slotUi.map((slot) => (
                 <button
                   key={slot.label}
                   disabled={!slot.available}
@@ -210,7 +294,7 @@ export default function Payment() {
                   }`}
                 >
                   {slot.label}
-                  {!slot.available && <span className="block text-[10px] mt-0.5 font-medium">Fully Booked</span>}
+                  {!slot.available && <span className="block text-[10px] mt-0.5 font-medium">{slot.statusLabel}</span>}
                 </button>
               ))}
             </CardContent>
@@ -258,7 +342,7 @@ export default function Payment() {
               </div>
               <button
                 onClick={handleConfirmOrder}
-                disabled={!selectedSlot || submitting}
+                disabled={!selectedSlot || submitting || slotLoading}
                 className="w-full gradient-primary text-primary-foreground font-bold py-3 rounded-full flex items-center justify-center gap-2 hover:opacity-90 hover:scale-[1.02] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}

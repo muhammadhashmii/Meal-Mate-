@@ -122,6 +122,24 @@ export type Database = {
         }
         Relationships: []
       }
+      pickup_slot_capacity: {
+        Row: {
+          max_capacity: number
+          slot_label: string
+          updated_at: string
+        }
+        Insert: {
+          max_capacity?: number
+          slot_label: string
+          updated_at?: string
+        }
+        Update: {
+          max_capacity?: number
+          slot_label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       orders: {
         Row: {
           created_at: string
@@ -270,7 +288,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_pickup_slot_availability: {
+        Args: { slot_labels: string[] }
+        Returns: {
+          booked_count: number
+          is_full: boolean
+          max_capacity: number
+          remaining: number
+          slot_label: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
