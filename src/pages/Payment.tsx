@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/context/AuthContext";
-import { buildPickupSlots } from "@/lib/pktTime";
+import { buildPickupSlots, isAfterPickupWindow } from "@/lib/pktTime";
 
 const paymentMethods = [
   { id: "card", label: "Credit/Debit Card", icon: CreditCard, desc: "Visa, Mastercard" },
@@ -83,6 +83,7 @@ export default function Payment() {
   const firstAvailable = timeSlots.find((s) => s.available)?.label ?? null;
   const [selectedSlot, setSelectedSlot] = useState<string | null>(firstAvailable);
   const [submitting, setSubmitting] = useState(false);
+  const showingTomorrowSlots = isAfterPickupWindow();
   const slotUi = useMemo(() => {
     return timeSlots.map((slot) => {
       const maxCapacity = slotCapacityByLabel[slot.label] ?? DEFAULT_SLOT_CAPACITY;
@@ -280,6 +281,11 @@ export default function Payment() {
               <CardTitle className="text-sm font-bold flex items-center gap-2">
                 <Clock className="h-4 w-4 text-primary" /> Pickup Time Slot
               </CardTitle>
+              {showingTomorrowSlots && (
+                <p className="text-xs text-muted-foreground font-medium">
+                  Showing tomorrow&apos;s pickup slots (today&apos;s service window has ended).
+                </p>
+              )}
             </CardHeader>
             <CardContent className="grid grid-cols-2 gap-2">
               {slotUi.map((slot) => (

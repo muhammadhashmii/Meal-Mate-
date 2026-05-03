@@ -110,6 +110,11 @@ export interface PickupSlotOption {
   available: boolean;
 }
 
+export function isAfterPickupWindow(referenceMs: number = Date.now()): boolean {
+  const now = getKarachiTimeParts(referenceMs);
+  return now.h * 60 + now.min >= PICKUP_END_MINUTES;
+}
+
 function addDaysToYmd(y: number, m: number, d: number, days: number): { y: number; m: number; d: number } {
   const shifted = new Date(Date.UTC(y, m - 1, d + days, 12, 0, 0, 0));
   return { y: shifted.getUTCFullYear(), m: shifted.getUTCMonth() + 1, d: shifted.getUTCDate() };
@@ -118,8 +123,7 @@ function addDaysToYmd(y: number, m: number, d: number, days: number): { y: numbe
 /** 30-minute slots [12:00, 17:00) in PKT, availability vs rounded "now" in PKT. */
 export function buildPickupSlots(referenceMs: number = Date.now()): PickupSlotOption[] {
   const now = getKarachiTimeParts(referenceMs);
-  const totalMin = now.h * 60 + now.min;
-  const showNextBusinessDay = totalMin >= PICKUP_END_MINUTES;
+  const showNextBusinessDay = isAfterPickupWindow(referenceMs);
   const { y, m: mo, d } = addDaysToYmd(now.y, now.m, now.d, showNextBusinessDay ? 1 : 0);
   const nextEligibleMs = showNextBusinessDay
     ? pktWallTimeToUtc(y, mo, d, Math.floor(PICKUP_START_MINUTES / 60), PICKUP_START_MINUTES % 60).getTime()
